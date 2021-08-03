@@ -1,7 +1,6 @@
 import win32com.client
 import sys
 
-sys.dont_write_bytecode = True
 
 
 def sample():
@@ -12,4 +11,5 @@ def sample():
 
 
 if __name__ == "__main__":
+    sys.dont_write_bytecode = True
     sample()
