@@ -36,19 +36,17 @@ def calculate_consecutive_month_and_year(
     return arr
 
 
-def covert_year_month_to_calendar(year, month):
+def convert_year_month_to_calendar(year, month):
     cal = calendar.Calendar()
-    day_day_of_week = cal.monthdays2calendar(year=year, month=month)
+    day_and_day_of_week = cal.monthdays2calendar(year=year, month=month)
     arr = []
-    for data_per_week in day_day_of_week:
-        for data in data_per_week:
-            if data[0] == 0:
+    for data_per_week in day_and_day_of_week:
+        for day, day_of_week in data_per_week:
+            if day == 0:
                 continue
             else:
-                new_data = list(data)
-                new_data[1] = get_day_of_week_from_num(data[1])
+                arr.append([day, get_day_of_week_from_num(day_of_week)])
 
-                arr.append(new_data)
     return arr
 
 
@@ -115,13 +113,14 @@ class Gantt:
             )
             cell_column_index_start += 1
 
-        ic(self.item_count)
-        ic(cell_column_index_start)
+        else:
+            cell_column_index_start -= 1
+
         self.ws.Cells(row_index, 8).Value = "-".join(
             map(
                 str,
                 self.working_year_month_days[
-                    cell_column_index_start - self.item_count - 2
+                    cell_column_index_start - self.item_count - 1
                 ],
             )
         )
@@ -147,7 +146,7 @@ class Gantt:
     def add_calendar(self, start_row_index, start_column_index, year, month):
         # calender
         # 0-> Monday, 6-> Sunday
-        days_and_weeks = covert_year_month_to_calendar(year, month)
+        days_and_weeks = convert_year_month_to_calendar(year, month)
         start_row_index = start_row_index
         start_column_index = start_column_index
         # year
@@ -206,7 +205,7 @@ class Gantt:
                 month=month,
             )
             start_column_index_offset += len(
-                covert_year_month_to_calendar(year, month)
+                convert_year_month_to_calendar(year, month)
             )
 
     def find_cell_column_from_year_month_day(
