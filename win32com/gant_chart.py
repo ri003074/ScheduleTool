@@ -74,6 +74,9 @@ class Gantt:
         self.start_month = start_month
         self.end_year = end_year
         self.end_month = end_month
+        self.working_year_month_days = []
+        self.item_count = 0
+        self.calendar_reference_row_index = 0
 
         xl = win32com.client.GetObject(Class="Excel.Application")
         wb = xl.Workbooks(self.excel_file_name)
@@ -92,7 +95,11 @@ class Gantt:
         start_year, start_month, start_day = map(int, start.split("-"))
 
         cell_column_index_start = self.find_cell_column_from_year_month_day(
-            start_year, start_month, start_day, 2, 9
+            start_year,
+            start_month,
+            start_day,
+            self.calendar_reference_row_index,
+            self.item_count + 1,
         )
 
         for _ in range(man_hour):
@@ -101,11 +108,29 @@ class Gantt:
             if self.ws.Cells(5, cell_column_index_start).Value == "日":
                 cell_column_index_start += 1
 
-            self.paint_cell(row_index, cell_column_index_start, 37)
+            self.paint_cell(
+                cell_row_index=row_index,
+                cell_column_index=cell_column_index_start,
+                color=37,
+            )
             cell_column_index_start += 1
 
+        ic(self.item_count)
+        ic(cell_column_index_start)
+        self.ws.Cells(row_index, 8).Value = "-".join(
+            map(
+                str,
+                self.working_year_month_days[
+                    cell_column_index_start - self.item_count - 2
+                ],
+            )
+        )
+        self.ws.Cells(row_index, 8).HorizontalAlignment = xlHAlignCenter
+
     def add_items(self, start_row_index, start_column_index, items):
-        # input string
+        self.item_count = len(items)
+        self.calendar_reference_row_index = start_row_index - 3
+
         for index, item in enumerate(items):
             self.ws.Cells(
                 start_row_index, index + start_column_index
@@ -139,18 +164,21 @@ class Gantt:
 
         # day and day_of_week
         for index, day_and_week in enumerate(days_and_weeks):
+            self.working_year_month_days.append([year, month, day_and_week[0]])
             self.ws.Cells(
-                start_row_index + 2, index + start_column_index
+                start_row_index + self.calendar_reference_row_index,
+                index + start_column_index,
             ).Value = day_and_week[0]
 
             self.specify_cell_width_and_height(
-                row_index=start_row_index + 2,
+                row_index=start_row_index + self.calendar_reference_row_index,
                 column_index=index + start_column_index,
                 cell_width=CALENDAR_CELL_WIDTH,
                 cell_height=21,
             )
             self.ws.Cells(
-                start_row_index + 2, index + start_column_index
+                start_row_index + self.calendar_reference_row_index,
+                index + start_column_index,
             ).HorizontalAlignment = xlHAlignCenter
             self.ws.Cells(
                 start_row_index + 3, index + start_column_index
@@ -159,7 +187,7 @@ class Gantt:
                 start_row_index + 3, index + start_column_index
             ).HorizontalAlignment = xlHAlignCenter
 
-    def add_calendars(self, start_column_index):
+    def add_calendars(self):
         working_month_and_days = calculate_consecutive_month_and_year(
             start_year=self.start_year,
             start_month=self.start_month,
@@ -167,16 +195,17 @@ class Gantt:
             end_month=self.end_month,
         )
         print(working_month_and_days)
+        start_column_index_offset = 1
         for working_month_and_day in working_month_and_days:
             year = working_month_and_day[0]
             month = working_month_and_day[1]
             self.add_calendar(
-                start_row_index=2,
-                start_column_index=start_column_index,
+                start_row_index=self.calendar_reference_row_index,
+                start_column_index=self.item_count + start_column_index_offset,
                 year=year,
                 month=month,
             )
-            start_column_index += len(
+            start_column_index_offset += len(
                 covert_year_month_to_calendar(year, month)
             )
 
@@ -214,7 +243,9 @@ class Gantt:
                 ):
                     if (
                         self.ws.Cells(
-                            calendar_start_row_index + 2, cell_column_index_day
+                            calendar_start_row_index
+                            + self.calendar_reference_row_index,
+                            cell_column_index_day,
                         ).Value
                         == day
                     ):
@@ -248,10 +279,10 @@ if __name__ == "__main__":
         end_month=END_MONTH,
     )
     gantt_chart.add_items(start_row_index=5, start_column_index=1, items=ITEMS)
-    gantt_chart.add_calendars(start_column_index=9)
+    gantt_chart.add_calendars()
 
     tasks = [
-        [6, "Kenta", 4, "2021-08-02"],
+        [6, "Kenta", 3, "2021-08-02"],
         [7, "Kenta", 8, "2021-08-06"],
         [8, "Kenta", 6, "2021-08-18"],
     ]
