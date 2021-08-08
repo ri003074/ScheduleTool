@@ -1,7 +1,7 @@
 import calendar
+from collections import defaultdict
 
 import win32com.client
-from icecream import ic
 
 from variables import CALENDAR_CELL_WIDTH
 from variables import END_MONTH
@@ -11,7 +11,12 @@ from variables import ITEMS
 from variables import START_MONTH
 from variables import START_YEAR
 from variables import xlHAlignCenter
+from variables import xlToLeft
 from variables import xlToRight
+from variables import xlUp
+
+
+# from icecream import ic
 
 
 def calculate_consecutive_month_and_year(
@@ -73,24 +78,30 @@ class Gantt:
         self.end_year = end_year
         self.end_month = end_month
         self.working_year_month_days = []
-        self.item_count = 0
+        self.item_count = len(ITEMS)
         self.calendar_reference_row_index = 0
+        self.task_info_row_index = 6
 
         xl = win32com.client.GetObject(Class="Excel.Application")
         wb = xl.Workbooks(self.excel_file_name)
-        self.ws = wb.Sheets(1)
-        self.ws.Cells.Clear()
+        self.ws = wb.Sheets("schedule")
 
-    def assign_task(self, row_index, name, man_hour, start_date):
-        self.ws.Cells(row_index, 5).Value = name
-        self.ws.Cells(row_index, 5).HorizontalAlignment = xlHAlignCenter
-        self.ws.Cells(row_index, 6).Value = man_hour
-        self.ws.Cells(row_index, 6).HorizontalAlignment = xlHAlignCenter
-        self.ws.Cells(row_index, 7).Value = start_date
-        self.ws.Cells(row_index, 7).HorizontalAlignment = xlHAlignCenter
+    def assign_task(self, check_items):
+        for index, check_item in enumerate(check_items.values()):
+            self.ws.Cells(
+                self.task_info_row_index, index + 1
+            ).Value = check_item
+            self.ws.Cells(
+                self.task_info_row_index, index + 1
+            ).HorizontalAlignment = xlHAlignCenter
 
-        start = f"{self.ws.Cells(row_index, 7).Value:%Y-%m-%d}"
+        start_day_cell_column_index = ITEMS.index("Start Day") + 1
+        start = f"{self.ws.Cells(self.task_info_row_index, start_day_cell_column_index).Value:%Y-%m-%d}"
         start_year, start_month, start_day = map(int, start.split("-"))
+        self.ws.Range(
+            self.ws.Cells(self.task_info_row_index, self.item_count + 1),
+            self.ws.Cells(self.task_info_row_index, self.ws.Columns.Count),
+        ).Clear()
 
         cell_column_index_start = self.find_cell_column_from_year_month_day(
             start_year,
@@ -100,14 +111,15 @@ class Gantt:
             self.item_count + 1,
         )
 
-        for _ in range(man_hour):
+        # check_items[2] == man-hour
+        for _ in range(int(check_items.get("Man-hours"))):
             if self.ws.Cells(5, cell_column_index_start).Value == "土":
                 cell_column_index_start += 1
             if self.ws.Cells(5, cell_column_index_start).Value == "日":
                 cell_column_index_start += 1
 
             self.paint_cell(
-                cell_row_index=row_index,
+                cell_row_index=self.task_info_row_index,
                 cell_column_index=cell_column_index_start,
                 color=37,
             )
@@ -116,7 +128,10 @@ class Gantt:
         else:
             cell_column_index_start -= 1
 
-        self.ws.Cells(row_index, 8).Value = "-".join(
+        end_day_cell_column_index = ITEMS.index("End Day") + 1
+        self.ws.Cells(
+            self.task_info_row_index, end_day_cell_column_index
+        ).Value = "-".join(
             map(
                 str,
                 self.working_year_month_days[
@@ -124,12 +139,14 @@ class Gantt:
                 ],
             )
         )
-        self.ws.Cells(row_index, 8).HorizontalAlignment = xlHAlignCenter
+        self.task_info_row_index += 1
 
-    def add_items(self, start_row_index, start_column_index, items):
-        self.item_count = len(items)
+    def add_items(self, start_row_index, start_column_index):
+        self.ws.Cells.Clear()
+
         self.calendar_reference_row_index = start_row_index - 3
 
+        items = ITEMS
         for index, item in enumerate(items):
             self.ws.Cells(
                 start_row_index, index + start_column_index
@@ -141,7 +158,9 @@ class Gantt:
                 start_row_index, index + start_column_index
             ).HorizontalAlignment = xlHAlignCenter
 
-            self.paint_cell(start_row_index, index + start_column_index, 37)
+            self.paint_cell(
+                start_row_index, index + start_column_index, color=37
+            )
 
     def add_calendar(self, start_row_index, start_column_index, year, month):
         # calender
@@ -236,7 +255,6 @@ class Gantt:
                 ).Value
                 == month
             ):
-                ic()
                 for cell_column_index_day in range(
                     cell_column_index, end_column + 31
                 ):
@@ -268,6 +286,61 @@ class Gantt:
             cell_row_index, cell_column_index
         ).Interior.ColorIndex = color
 
+    def update_calendars(self):
+        self.ws.Cells(6, 3).Value = 6  # test code
+
+        self.task_info_row_index = 6  # back to default
+        last_row_index = (
+            self.ws.Cells(self.ws.Cells.Rows.Count, 1).End(xlUp).Row
+        )
+        for row_index in range(6, last_row_index + 1):
+            check_items = defaultdict()
+            for column_index in range(1, len(ITEMS) + 1):
+                check_items[ITEMS[column_index - 1]] = self.ws.Cells(
+                    row_index, column_index
+                ).Value
+            self.assign_task(check_items)
+
+    def store_calendars(self):
+        self.working_year_month_days = []
+        start_row_index = 2
+        start_column_index = self.item_count + 1
+        self.calendar_reference_row_index = 2
+
+        last_data_column_index = (
+            self.ws.Cells(start_row_index + 2, self.ws.Cells.Columns.Count)
+            .End(xlToLeft)
+            .Column
+        )
+        year = []
+        month = []
+        year_month_counter = 0
+        for row in range(start_row_index, start_row_index + 3):
+            for column in range(
+                start_column_index, last_data_column_index + 1
+            ):
+                cell_value = self.ws.Cells(row, column).Value
+                if cell_value is not None:
+                    if row == start_row_index:
+                        year.append(cell_value)
+                    elif row == start_row_index + 1:
+                        month.append(cell_value)
+                    elif row == start_row_index + 2:
+
+                        if (
+                            column > start_column_index
+                            and cell_value
+                            < self.ws.Cells(row, column - 1).Value
+                        ):
+                            year_month_counter += 1
+                        self.working_year_month_days.append(
+                            [
+                                int(year[year_month_counter]),
+                                int(month[year_month_counter]),
+                                int(cell_value),
+                            ]
+                        )
+
 
 if __name__ == "__main__":
     gantt_chart = Gantt(
@@ -277,13 +350,29 @@ if __name__ == "__main__":
         end_year=END_YEAR,
         end_month=END_MONTH,
     )
-    gantt_chart.add_items(start_row_index=5, start_column_index=1, items=ITEMS)
+    gantt_chart.add_items(start_row_index=5, start_column_index=1)
     gantt_chart.add_calendars()
 
     tasks = [
-        [6, "Kenta", 3, "2021-08-02"],
-        [7, "Kenta", 8, "2021-08-06"],
-        [8, "Kenta", 6, "2021-08-18"],
+        {
+            "No": 1,
+            "Assign": "Kenta",
+            "Man-hours": 3,
+            "Start Day": "2021-08-02",
+            "End Day": "",
+            "Status": "On-Going",
+        },
+        {
+            "No": 2,
+            "Assign": "Kenta",
+            "Man-hours": 5,
+            "Start Day": "2021-08-06",
+            "End Day": "",
+            "Status": "On-Going",
+        },
     ]
     for task in tasks:
-        gantt_chart.assign_task(*task)
+        gantt_chart.assign_task(task)
+
+    gantt_chart.store_calendars()
+    gantt_chart.update_calendars()
