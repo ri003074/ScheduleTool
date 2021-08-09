@@ -59,6 +59,7 @@ def assign_task():
     search_cell_from_year_month_day(2021, 12, 2, 2, 9)
 
 
+# done
 def paint_cell(cell_row_index, cell_column_index, color):
     worksheet = get_worksheet_object()
     worksheet.Cells(
@@ -122,6 +123,7 @@ def add_all_calendars(worksheet, working_month_and_days, start_column_index):
         start_column_index += len(covert_year_month_to_calendar(year, month))
 
 
+# done
 def calculate_consecutive_month_and_year(
     start_year, start_month, end_year, end_month
 ):
@@ -144,6 +146,7 @@ def calculate_consecutive_month_and_year(
     return arr
 
 
+# done
 def add_calendar(worksheet, start_row_index, start_column_index, year, month):
     # calender
     # 0-> Monday, 6-> Sunday
@@ -224,6 +227,7 @@ def add_items(worksheet, start_row_index, start_column_index, items):
         ).Interior.ColorIndex = 37
 
 
+# done
 def covert_year_month_to_calendar(year, month):
     cal = calendar.Calendar()
     day_day_of_week = cal.monthdays2calendar(year=year, month=month)
@@ -240,6 +244,7 @@ def covert_year_month_to_calendar(year, month):
     return arr
 
 
+# done
 def get_day_of_week_from_num(num):
     data = [
         "月",
