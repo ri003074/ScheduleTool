@@ -1,1 +1,4 @@
 **/*.pyc
+.idea*
+workspace.xml
+win32com/.idea/workspace.xml
