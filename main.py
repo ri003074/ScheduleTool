@@ -17,7 +17,7 @@ class Action(Enum):
 
 
 if __name__ == "__main__":
-    action = Action.ASSIGN
+    action = Action.ADD
 
     info = Info(excel_file_name=EXCEL_FILE_NAME)
     gantt_chart = Gantt(
